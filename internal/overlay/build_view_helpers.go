@@ -1,10 +1,11 @@
 package overlay
 
 import (
-	"fmt"
-	"strings"
+	"image"
 
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -12,7 +13,6 @@ import (
 	"github.com/pedrobalen/poe-build-overlay/internal/builds"
 	"github.com/pedrobalen/poe-build-overlay/internal/ui/theme"
 	"github.com/pedrobalen/poe-build-overlay/internal/ui/tree"
-	"github.com/pedrobalen/poe-build-overlay/internal/ui/widgets"
 )
 
 // navButton renders a previous/next control, dimmed and inert when disabled.
@@ -72,43 +72,33 @@ func treeUnavailableText(err error) string {
 }
 
 // buildGemRows lists the current stage's socket (link) groups and their gems
-// exactly as saved in the build, with active skills before supports. Gems carry
-// no progression markers: stage-to-stage comparison is expressed on the passive
-// tree only.
+// exactly as saved in the build, with active skills before supports. Groups are
+// separated by a divider; the build's main skill is highlighted. Gems carry no
+// progression markers: stage-to-stage comparison lives on the passive tree only.
 func buildGemRows(th *theme.Theme, stage *builds.BuildStage) []layout.Widget {
 	rows := []layout.Widget{}
+	first := true
 
-	for i, group := range stage.SkillGroups {
+	for _, group := range stage.SkillGroups {
 		if len(group.Gems) == 0 {
 			continue
 		}
-		rows = append(rows, groupHeaderRow(th, group, i))
-		for _, gem := range orderedGems(group.Gems) {
-			rows = append(rows, gemRow(th, gem.Name, gem.IsSupport))
+		if !first {
+			rows = append(rows, dividerRow(th))
 		}
-		rows = append(rows, spacerRow(8))
+		first = false
+
+		for _, gem := range orderedGems(group.Gems) {
+			primary := group.IsMain && !gem.IsSupport
+			rows = append(rows, gemRow(th, gem.Name, gem.IsSupport, primary))
+		}
 	}
 
 	if len(rows) == 0 {
-		rows = append(rows, gemRow(th, "No skills.", false))
+		rows = append(rows, gemRow(th, "No skills.", false, false))
 	}
 
 	return rows
-}
-
-func groupHeaderRow(th *theme.Theme, group builds.SkillGroup, index int) layout.Widget {
-	title := group.Label
-	if title == "" {
-		title = group.Slot
-	}
-	if title == "" {
-		title = fmt.Sprintf("Group %d", index+1)
-	}
-	if group.IsMain {
-		title += " · main"
-	}
-
-	return sectionRow(th, strings.ToUpper(title))
 }
 
 // orderedGems returns a skill group's gems with active skills before supports,
@@ -130,15 +120,19 @@ func orderedGems(gems []builds.Gem) []builds.Gem {
 }
 
 // gemRow renders one gem: active skills are bold with a diamond marker; supports
-// are indented and dimmed with a link marker.
-func gemRow(th *theme.Theme, name string, isSupport bool) layout.Widget {
+// are indented and dimmed with a link marker. The build's primary skill is drawn
+// in the accent color.
+func gemRow(th *theme.Theme, name string, isSupport, primary bool) layout.Widget {
 	marker := "◆ "
 	inset := layout.Inset{Top: unit.Dp(2)}
 	col := th.Fg
-	if isSupport {
+	switch {
+	case isSupport:
 		marker = "↳ "
 		inset.Left = unit.Dp(14)
 		col = th.Muted
+	case primary:
+		col = th.Line
 	}
 
 	return func(gtx layout.Context) layout.Dimensions {
@@ -153,12 +147,16 @@ func gemRow(th *theme.Theme, name string, isSupport bool) layout.Widget {
 	}
 }
 
-func sectionRow(th *theme.Theme, title string) layout.Widget {
+// dividerRow draws a thin horizontal separator between socket groups.
+func dividerRow(th *theme.Theme) layout.Widget {
 	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: unit.Dp(2), Bottom: unit.Dp(2)}.Layout(gtx, widgets.SectionTitle(th, title))
-	}
-}
+		return layout.Inset{Top: unit.Dp(7), Bottom: unit.Dp(7)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(unit.Dp(1)))
+			line := th.Muted
+			line.A = 0x40
+			paint.FillShape(gtx.Ops, line, clip.Rect{Max: size}.Op())
 
-func spacerRow(height int) layout.Widget {
-	return layout.Spacer{Height: unit.Dp(height)}.Layout
+			return layout.Dimensions{Size: size}
+		})
+	}
 }

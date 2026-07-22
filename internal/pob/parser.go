@@ -32,7 +32,7 @@ func Parse(data []byte) (ParsedBuild, error) {
 		ActiveSpec:      doc.Tree.ActiveSpec,
 		ActiveSkillSet:  doc.Skills.ActiveSkillSet,
 		Specs:           specsFromXML(doc.Tree.Specs),
-		SkillSets:       skillSetsFromXML(doc.Skills),
+		SkillSets:       skillSetsFromXML(doc.Skills, doc.Build.MainSocketGroup),
 	}
 
 	if len(build.Specs) > 0 {
@@ -82,15 +82,16 @@ func parseMasteryEffects(raw string) map[int]int {
 
 // skillSetsFromXML handles both the modern layout (Skills > SkillSet > Skill)
 // and the legacy layout (Skills > Skill) by wrapping bare skills in a single
-// default set so downstream code always sees named sets.
-func skillSetsFromXML(skills xmlSkills) []ParsedSkillSet {
+// default set so downstream code always sees named sets. mainSocketGroup is the
+// build's 1-based main socket group index, used to flag the primary group.
+func skillSetsFromXML(skills xmlSkills, mainSocketGroup int) []ParsedSkillSet {
 	if len(skills.SkillSets) > 0 {
 		out := make([]ParsedSkillSet, 0, len(skills.SkillSets))
 		for _, set := range skills.SkillSets {
 			out = append(out, ParsedSkillSet{
 				ID:     set.ID,
 				Title:  strings.TrimSpace(set.Title),
-				Groups: groupsFromXML(set.Skills),
+				Groups: groupsFromXML(set.Skills, mainSocketGroup),
 			})
 		}
 
@@ -104,18 +105,18 @@ func skillSetsFromXML(skills xmlSkills) []ParsedSkillSet {
 	return []ParsedSkillSet{{
 		ID:     1,
 		Title:  "",
-		Groups: groupsFromXML(skills.Skills),
+		Groups: groupsFromXML(skills.Skills, mainSocketGroup),
 	}}
 }
 
-func groupsFromXML(skills []xmlSkill) []ParsedSocketGroup {
+func groupsFromXML(skills []xmlSkill, mainSocketGroup int) []ParsedSocketGroup {
 	out := make([]ParsedSocketGroup, 0, len(skills))
-	for _, s := range skills {
+	for i, s := range skills {
 		out = append(out, ParsedSocketGroup{
 			Label:   strings.TrimSpace(s.Label),
 			Slot:    strings.TrimSpace(s.Slot),
 			Enabled: parseBoolAttr(s.Enabled, true),
-			IsMain:  isMainSkill(s.MainActiveSkill),
+			IsMain:  i == mainSocketGroup-1,
 			Gems:    gemsFromXML(s.Gems),
 		})
 	}
@@ -175,17 +176,6 @@ func parseBoolAttr(raw string, def bool) bool {
 	}
 }
 
-// isMainSkill reports whether a skill group's mainActiveSkill attribute marks
-// it as active. PoB uses "nil" or "0" for inactive groups.
-func isMainSkill(raw string) bool {
-	raw = strings.ToLower(strings.TrimSpace(raw))
-	if raw == "" || raw == "nil" || raw == "0" {
-		return false
-	}
-
-	return true
-}
-
 // isSupportGem classifies a gem as a support. The skillId is authoritative when
 // present (PoB prefixes support skill ids with "Support"); otherwise it falls
 // back to the "Support" name suffix.
@@ -239,11 +229,10 @@ type xmlSkillSet struct {
 }
 
 type xmlSkill struct {
-	Label           string   `xml:"label,attr"`
-	Slot            string   `xml:"slot,attr"`
-	Enabled         string   `xml:"enabled,attr"`
-	MainActiveSkill string   `xml:"mainActiveSkill,attr"`
-	Gems            []xmlGem `xml:"Gem"`
+	Label   string   `xml:"label,attr"`
+	Slot    string   `xml:"slot,attr"`
+	Enabled string   `xml:"enabled,attr"`
+	Gems    []xmlGem `xml:"Gem"`
 }
 
 type xmlGem struct {
