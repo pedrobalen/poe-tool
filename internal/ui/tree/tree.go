@@ -32,6 +32,9 @@ const (
 	StateNew
 	// StateRemoved is a node dropped in the current stage.
 	StateRemoved
+	// StateMasteryChanged is a mastery kept allocated but whose selected effect
+	// changed this stage (swapped, not respecced).
+	StateMasteryChanged
 )
 
 // StageHighlight holds the node-state lookups for one stage. The maps are built
@@ -46,6 +49,8 @@ type StageHighlight struct {
 	Previous map[int]struct{}
 	New      map[int]struct{}
 	Removed  map[int]struct{}
+	// MasteryChanged holds masteries kept allocated but with a changed effect.
+	MasteryChanged map[int]struct{}
 	// Masteries maps a mastery node id to the effect id the build selected.
 	Masteries map[int]int
 }
@@ -56,6 +61,9 @@ func (h StageHighlight) stateOf(id int) NodeState {
 	}
 	if _, ok := h.Removed[id]; ok {
 		return StateRemoved
+	}
+	if _, ok := h.MasteryChanged[id]; ok {
+		return StateMasteryChanged
 	}
 	if _, ok := h.Current[id]; ok {
 		return StatePrevious
@@ -231,7 +239,7 @@ func (w *Widget) drawNodes(
 		sx, sy := w.Camera.WorldToScreen(node.X, node.Y)
 		state := h.stateOf(node.ID)
 		radius := nodeRadius(node, w.Camera.Zoom)
-		if state == StateNew || state == StateRemoved {
+		if state == StateNew || state == StateRemoved || state == StateMasteryChanged {
 			radius += 2
 		}
 		col := colorFor(th, state)
@@ -355,6 +363,8 @@ func colorFor(th *theme.Theme, state NodeState) color.NRGBA {
 		return th.New
 	case StateRemoved:
 		return th.Removed
+	case StateMasteryChanged:
+		return th.Future
 	case StatePrevious:
 		return th.Line
 	default:

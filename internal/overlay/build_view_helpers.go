@@ -36,13 +36,14 @@ func navButton(th *theme.Theme, c *widget.Clickable, label string, enabled bool)
 // current allocation is populated, so the tree shows the stage's tree without
 // the green/red progression coloring (useful for builds whose saved trees are
 // unrelated variants rather than A→B steps).
-func highlightFor(stage *builds.BuildStage, compare bool) tree.StageHighlight {
+func highlightFor(b *builds.Build, stage *builds.BuildStage, compare bool) tree.StageHighlight {
 	h := tree.StageHighlight{
-		Current:   make(map[int]struct{}, len(stage.PassiveNodes)),
-		Previous:  map[int]struct{}{},
-		New:       map[int]struct{}{},
-		Removed:   map[int]struct{}{},
-		Masteries: stage.MasterySelections,
+		Current:        make(map[int]struct{}, len(stage.PassiveNodes)),
+		Previous:       map[int]struct{}{},
+		New:            map[int]struct{}{},
+		Removed:        map[int]struct{}{},
+		MasteryChanged: map[int]struct{}{},
+		Masteries:      stage.MasterySelections,
 	}
 	for _, n := range stage.PassiveNodes {
 		h.Current[n] = struct{}{}
@@ -70,7 +71,23 @@ func highlightFor(stage *builds.BuildStage, compare bool) tree.StageHighlight {
 		h.Previous[n] = struct{}{}
 	}
 
+	markChangedMasteries(b, stage, h.MasteryChanged)
+
 	return h
+}
+
+// markChangedMasteries flags mastery nodes that stay allocated from the previous
+// stage but whose selected effect changed (a swap, not a respec).
+func markChangedMasteries(b *builds.Build, stage *builds.BuildStage, changed map[int]struct{}) {
+	prev := b.StageAt(stage.Order - 1)
+	if prev == nil {
+		return
+	}
+	for node, effect := range stage.MasterySelections {
+		if prevEffect, ok := prev.MasterySelections[node]; ok && prevEffect != effect {
+			changed[node] = struct{}{}
+		}
+	}
 }
 
 func treeUnavailableText(err error) string {

@@ -76,7 +76,7 @@ func (v *BuildView) Layout(
 		layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 		layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-				layout.Flexed(1, v.treePanel(th, treeData, treeErr, stage, compare)),
+				layout.Flexed(1, v.treePanel(th, b, treeData, treeErr, stage, compare)),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 				layout.Rigid(v.gemsPanel(th, stage)),
 			)
@@ -148,6 +148,7 @@ func (v *BuildView) stageBar(th *theme.Theme, b *builds.Build, stage *builds.Bui
 
 func (v *BuildView) treePanel(
 	th *theme.Theme,
+	b *builds.Build,
 	data *pt.TreeData,
 	treeErr error,
 	stage *builds.BuildStage,
@@ -158,7 +159,7 @@ func (v *BuildView) treePanel(
 			if data == nil {
 				return layout.Center.Layout(gtx, widgets.Body(th, treeUnavailableText(treeErr), th.Muted))
 			}
-			highlight := highlightFor(stage, compare)
+			highlight := highlightFor(b, stage, compare)
 			focus := stage.NewNodes
 			if !compare {
 				focus = stage.PassiveNodes
