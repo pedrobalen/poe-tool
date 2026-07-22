@@ -100,6 +100,9 @@ func (a *App) handleChrome(action overlay.ChromeAction) {
 	if action.GotoBrowse {
 		a.gotoBrowse()
 	}
+	if action.Quit {
+		a.requestClose()
+	}
 }
 
 // handleBrowse applies saved-build actions: activate, delete, import, or back.

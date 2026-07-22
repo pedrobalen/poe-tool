@@ -26,6 +26,7 @@ type Chrome struct {
 	lock    widget.Clickable
 	imp     widget.Clickable
 	browse  widget.Clickable
+	close   widget.Clickable
 	opacity widget.Float
 	lastOp  float32
 	dragTag int // stable identity for the drag-handle pointer input
@@ -34,6 +35,7 @@ type Chrome struct {
 	iconUnlock *widget.Icon
 	iconAdd    *widget.Icon
 	iconList   *widget.Icon
+	iconClose  *widget.Icon
 }
 
 // NewChrome builds the control bar with its icons.
@@ -43,6 +45,7 @@ func NewChrome() *Chrome {
 		iconUnlock: mustIcon(icons.ActionLockOpen),
 		iconAdd:    mustIcon(icons.ContentAdd),
 		iconList:   mustIcon(icons.ActionViewList),
+		iconClose:  mustIcon(icons.NavigationClose),
 	}
 	c.opacity.Value = 1
 	c.lastOp = 1
@@ -71,6 +74,7 @@ type ChromeAction struct {
 	Opacity        float64
 	GotoImport     bool
 	GotoBrowse     bool
+	Quit           bool // user asked to close the app
 	DragStart      bool // user pressed the drag handle to begin moving the window
 	DragEnd        bool // user released the drag handle
 }
@@ -82,6 +86,7 @@ func (c *Chrome) Layout(gtx layout.Context, th *theme.Theme, title string, locke
 		ToggleLock: c.lock.Clicked(gtx),
 		GotoImport: c.imp.Clicked(gtx),
 		GotoBrowse: c.browse.Clicked(gtx),
+		Quit:       c.close.Clicked(gtx),
 	}
 
 	if !locked {
@@ -96,6 +101,7 @@ func (c *Chrome) Layout(gtx layout.Context, th *theme.Theme, title string, locke
 		layout.Rigid(smallIconButton(th, &c.lock, c.lockIcon(locked), "Lock position")),
 		layout.Rigid(smallIconButton(th, &c.imp, c.iconAdd, "Import build")),
 		layout.Rigid(smallIconButton(th, &c.browse, c.iconList, "Saved builds")),
+		layout.Rigid(c.closeButton(th)),
 	)
 
 	c.applyOpacityChange(&action)
@@ -167,6 +173,20 @@ func (c *Chrome) applyOpacityChange(action *ChromeAction) {
 	action.OpacityChanged = true
 	action.OpacitySettled = !c.opacity.Dragging()
 	action.Opacity = minOpacity + opacitySpan*float64(c.opacity.Value)
+}
+
+// closeButton is the quit-app control, tinted red to distinguish it from the
+// hide hotkey.
+func (c *Chrome) closeButton(th *theme.Theme) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		b := material.IconButton(th.Theme, &c.close, c.iconClose, "Close app")
+		b.Background = th.Surface
+		b.Color = th.Removed
+		b.Size = unit.Dp(18)
+		b.Inset = layout.UniformInset(unit.Dp(8))
+
+		return b.Layout(gtx)
+	}
 }
 
 func (c *Chrome) lockIcon(locked bool) *widget.Icon {
