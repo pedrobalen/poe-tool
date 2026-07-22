@@ -1,6 +1,7 @@
 package overlay
 
 import (
+	"fmt"
 	"strings"
 
 	"gioui.org/layout"
@@ -70,115 +71,38 @@ func treeUnavailableText(err error) string {
 	return "Passive tree unavailable: " + err.Error()
 }
 
-// gemStatus marks whether a gem was added, removed, or carried over this stage.
-type gemStatus int
-
-const (
-	gemKept gemStatus = iota
-	gemAdded
-	gemRemoved
-)
-
-// buildGemRows renders each socket (link) group with its gems, marking additions
-// and removals in place. Changes are shown within the gem's own group so a
-// support is never displayed against a skill it is not linked to.
-func buildGemRows(th *theme.Theme, b *builds.Build, stage *builds.BuildStage) []layout.Widget {
-	prev := b.StageAt(stage.Order - 1)
+// buildGemRows lists the current stage's socket (link) groups and their gems
+// exactly as saved in the build, with active skills before supports. Gems carry
+// no progression markers: stage-to-stage comparison is expressed on the passive
+// tree only.
+func buildGemRows(th *theme.Theme, stage *builds.BuildStage) []layout.Widget {
 	rows := []layout.Widget{}
 
 	for i, group := range stage.SkillGroups {
 		if len(group.Gems) == 0 {
 			continue
 		}
-		prevGroup := matchPrevGroup(prev, group, i)
-		rows = append(rows, groupHeaderRow(th, group))
-		rows = append(rows, groupGemRows(th, group, prevGroup, prev != nil)...)
+		rows = append(rows, groupHeaderRow(th, group, i))
+		for _, gem := range orderedGems(group.Gems) {
+			rows = append(rows, gemRow(th, gem.Name, gem.IsSupport))
+		}
 		rows = append(rows, spacerRow(8))
 	}
 
 	if len(rows) == 0 {
-		rows = append(rows, gemRow(th, "No skills.", false, gemKept))
+		rows = append(rows, gemRow(th, "No skills.", false))
 	}
 
 	return rows
 }
 
-// groupGemRows renders a group's current gems (marking new ones) followed by any
-// gems dropped from the matching previous group.
-func groupGemRows(
-	th *theme.Theme,
-	group builds.SkillGroup,
-	prevGroup *builds.SkillGroup,
-	hasPrev bool,
-) []layout.Widget {
-	prevNames := gemNames(prevGroup)
-	rows := []layout.Widget{}
-
-	for _, gem := range orderedGems(group.Gems) {
-		status := gemKept
-		if hasPrev {
-			if _, ok := prevNames[gem.Name]; !ok {
-				status = gemAdded
-			}
-		}
-		rows = append(rows, gemRow(th, gem.Name, gem.IsSupport, status))
-	}
-
-	if prevGroup != nil {
-		currNames := gemNames(&group)
-		for _, gem := range orderedGems(prevGroup.Gems) {
-			if _, ok := currNames[gem.Name]; !ok {
-				rows = append(rows, gemRow(th, gem.Name, gem.IsSupport, gemRemoved))
-			}
-		}
-	}
-
-	return rows
-}
-
-// matchPrevGroup finds the previous stage's socket group corresponding to g,
-// preferring slot+label, then slot, then position.
-func matchPrevGroup(prev *builds.BuildStage, g builds.SkillGroup, index int) *builds.SkillGroup {
-	if prev == nil {
-		return nil
-	}
-	for i := range prev.SkillGroups {
-		p := &prev.SkillGroups[i]
-		if (g.Slot != "" || g.Label != "") && p.Slot == g.Slot && p.Label == g.Label {
-			return p
-		}
-	}
-	for i := range prev.SkillGroups {
-		if g.Slot != "" && prev.SkillGroups[i].Slot == g.Slot {
-			return &prev.SkillGroups[i]
-		}
-	}
-	if index < len(prev.SkillGroups) {
-		return &prev.SkillGroups[index]
-	}
-
-	return nil
-}
-
-func gemNames(group *builds.SkillGroup) map[string]struct{} {
-	names := map[string]struct{}{}
-	if group == nil {
-		return names
-	}
-	for _, gem := range group.Gems {
-		names[gem.Name] = struct{}{}
-	}
-
-	return names
-}
-
-func groupHeaderRow(th *theme.Theme, group builds.SkillGroup) layout.Widget {
-	title := group.Slot
+func groupHeaderRow(th *theme.Theme, group builds.SkillGroup, index int) layout.Widget {
+	title := group.Label
 	if title == "" {
-		title = group.Label
+		title = group.Slot
 	}
 	if title == "" {
-		title = "Skill group"
+		title = fmt.Sprintf("Group %d", index+1)
 	}
 	if group.IsMain {
 		title += " · main"
@@ -205,33 +129,20 @@ func orderedGems(gems []builds.Gem) []builds.Gem {
 	return ordered
 }
 
-// gemRow renders one gem with its status. Active skills are bold with a diamond
-// marker; supports are indented with a link marker. Added gems are green,
-// removed gems red, carried-over gems neutral.
-func gemRow(th *theme.Theme, name string, isSupport bool, status gemStatus) layout.Widget {
+// gemRow renders one gem: active skills are bold with a diamond marker; supports
+// are indented and dimmed with a link marker.
+func gemRow(th *theme.Theme, name string, isSupport bool) layout.Widget {
 	marker := "◆ "
 	inset := layout.Inset{Top: unit.Dp(2)}
+	col := th.Fg
 	if isSupport {
 		marker = "↳ "
 		inset.Left = unit.Dp(14)
-	}
-
-	sign := ""
-	col := th.Fg
-	if isSupport {
 		col = th.Muted
-	}
-	switch status {
-	case gemAdded:
-		sign = "+ "
-		col = th.New
-	case gemRemoved:
-		sign = "− "
-		col = th.Removed
 	}
 
 	return func(gtx layout.Context) layout.Dimensions {
-		lbl := material.Body1(th.Theme, sign+marker+name)
+		lbl := material.Body1(th.Theme, marker+name)
 		lbl.Color = col
 		lbl.MaxLines = 1
 		if !isSupport {

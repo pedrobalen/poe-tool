@@ -78,20 +78,3 @@ type Gem struct {
 	Enabled       bool
 	IsSupport     bool
 }
-
-// GemChangeKind classifies how a gem changed between two stages.
-type GemChangeKind string
-
-const (
-	// GemAdded means the gem is present in the current stage but not the previous.
-	GemAdded GemChangeKind = "added"
-	// GemRemoved means the gem was present previously but not in the current stage.
-	GemRemoved GemChangeKind = "removed"
-)
-
-// GemChange is one entry in a stage's gem diff summary.
-type GemChange struct {
-	Kind      GemChangeKind
-	Name      string
-	IsSupport bool
-}

@@ -88,14 +88,12 @@ func TestImportFile(t *testing.T) {
 	}
 
 	// The support gem must be flagged via its skillId.
-	main := endgame.MainSkillGroup()
-	if main == nil {
-		t.Fatal("expected a main skill group")
-	}
 	var sawSupport bool
-	for _, gem := range main.Gems {
-		if gem.Name == "Melee Physical Damage Support" && gem.IsSupport {
-			sawSupport = true
+	for _, group := range endgame.SkillGroups {
+		for _, gem := range group.Gems {
+			if gem.Name == "Melee Physical Damage Support" && gem.IsSupport {
+				sawSupport = true
+			}
 		}
 	}
 	if !sawSupport {

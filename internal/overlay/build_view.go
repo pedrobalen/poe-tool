@@ -71,7 +71,7 @@ func (v *BuildView) Layout(
 			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 				layout.Flexed(1, v.treePanel(th, treeData, treeErr, stage)),
 				layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-				layout.Rigid(v.gemsPanel(th, b, stage)),
+				layout.Rigid(v.gemsPanel(th, stage)),
 			)
 		}),
 	)
@@ -142,8 +142,8 @@ func (v *BuildView) treePanel(
 // gemsPanel renders the skills/gems side panel: a fixed-width, scrollable column
 // so its length never resizes the tree. It distinguishes active skill gems from
 // support gems and lists the gem changes versus the previous stage.
-func (v *BuildView) gemsPanel(th *theme.Theme, b *builds.Build, stage *builds.BuildStage) layout.Widget {
-	rows := buildGemRows(th, b, stage)
+func (v *BuildView) gemsPanel(th *theme.Theme, stage *builds.BuildStage) layout.Widget {
+	rows := buildGemRows(th, stage)
 	v.gemsList.Axis = layout.Vertical
 
 	return func(gtx layout.Context) layout.Dimensions {
