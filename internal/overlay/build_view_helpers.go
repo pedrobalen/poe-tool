@@ -32,18 +32,26 @@ func navButton(th *theme.Theme, c *widget.Clickable, label string, enabled bool)
 }
 
 // highlightFor builds the tree node-state lookups from a stage's precomputed
-// diffs, so drawing never recomputes them.
-func highlightFor(stage *builds.BuildStage) tree.StageHighlight {
+// diffs, so drawing never recomputes them. When compare is false, only the
+// current allocation is populated, so the tree shows the stage's tree without
+// the green/red progression coloring (useful for builds whose saved trees are
+// unrelated variants rather than A→B steps).
+func highlightFor(stage *builds.BuildStage, compare bool) tree.StageHighlight {
 	h := tree.StageHighlight{
 		Current:   make(map[int]struct{}, len(stage.PassiveNodes)),
-		Previous:  make(map[int]struct{}, len(stage.PassiveNodes)),
-		New:       make(map[int]struct{}, len(stage.NewNodes)),
-		Removed:   make(map[int]struct{}, len(stage.RemovedNodes)),
+		Previous:  map[int]struct{}{},
+		New:       map[int]struct{}{},
+		Removed:   map[int]struct{}{},
 		Masteries: stage.MasterySelections,
 	}
 	for _, n := range stage.PassiveNodes {
 		h.Current[n] = struct{}{}
 	}
+
+	if !compare {
+		return h
+	}
+
 	for _, n := range stage.NewNodes {
 		h.New[n] = struct{}{}
 	}

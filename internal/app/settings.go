@@ -8,30 +8,44 @@ import (
 const (
 	keyLocked  = "overlay_locked"
 	keyOpacity = "overlay_opacity"
+	keyCompare = "overlay_compare"
 
 	defaultOpacity = 1.0
 )
 
-// loadPreferences reads the persisted overlay lock and opacity, falling back to
-// sensible defaults when unset or malformed.
-func (a *App) loadPreferences() (locked bool, opacity float64) {
-	opacity = defaultOpacity
+// preferences holds the persisted overlay settings.
+type preferences struct {
+	locked  bool
+	opacity float64
+	compare bool
+}
+
+// loadPreferences reads the persisted overlay settings, falling back to sensible
+// defaults when unset or malformed.
+func (a *App) loadPreferences() preferences {
+	prefs := preferences{opacity: defaultOpacity, compare: true}
 
 	if v, ok, err := a.deps.SettingsRepo.Get(a.ctx, keyLocked); err != nil {
 		log.Printf("reading lock preference: %v", err)
 	} else if ok {
-		locked = v == "1"
+		prefs.locked = v == "1"
 	}
 
 	if v, ok, err := a.deps.SettingsRepo.Get(a.ctx, keyOpacity); err != nil {
 		log.Printf("reading opacity preference: %v", err)
 	} else if ok {
 		if parsed, perr := strconv.ParseFloat(v, 64); perr == nil {
-			opacity = parsed
+			prefs.opacity = parsed
 		}
 	}
 
-	return locked, opacity
+	if v, ok, err := a.deps.SettingsRepo.Get(a.ctx, keyCompare); err != nil {
+		log.Printf("reading compare preference: %v", err)
+	} else if ok {
+		prefs.compare = v == "1"
+	}
+
+	return prefs
 }
 
 func (a *App) savePreference(key, value string) {

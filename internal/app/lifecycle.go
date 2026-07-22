@@ -53,13 +53,14 @@ func (a *App) Run(w *gioapp.Window) error {
 // from local storage without touching the network, satisfying the fast-open
 // requirement.
 func (a *App) loadInitialState() {
-	locked, opacity := a.loadPreferences()
-	a.chrome.SetOpacityAlpha(opacity)
-	a.plat.SetOpacity(opacity)
+	prefs := a.loadPreferences()
+	a.chrome.SetOpacityAlpha(prefs.opacity)
+	a.plat.SetOpacity(prefs.opacity)
 
 	a.mu.Lock()
-	a.state.locked = locked
-	a.state.opacity = opacity
+	a.state.locked = prefs.locked
+	a.state.opacity = prefs.opacity
+	a.state.compare = prefs.compare
 	a.mu.Unlock()
 
 	build, err := a.deps.BuildRepo.FindActive(a.ctx)
@@ -226,8 +227,13 @@ func (a *App) deleteBuild(id string) {
 	a.invalidate()
 }
 
-// handleNav applies a navigation action and persists the selected stage.
+// handleNav applies a navigation action, persists the selected stage, and
+// applies the compare toggle.
 func (a *App) handleNav(action overlay.NavAction, build *builds.Build) {
+	if action.ToggleCompare {
+		a.setCompare(action.CompareOn)
+	}
+
 	target := build.CurrentStage
 	switch action.Kind {
 	case overlay.NavPrev:
@@ -248,6 +254,16 @@ func (a *App) handleNav(action overlay.NavAction, build *builds.Build) {
 	if err := a.deps.Service.SetCurrentStage(a.ctx, build.ID, target); err != nil {
 		log.Printf("persisting current stage: %v", err)
 	}
+	a.invalidate()
+}
+
+// setCompare persists and applies the tree compare-mode toggle.
+func (a *App) setCompare(on bool) {
+	a.mu.Lock()
+	a.state.compare = on
+	a.mu.Unlock()
+
+	a.savePreference(keyCompare, boolToSetting(on))
 	a.invalidate()
 }
 

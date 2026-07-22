@@ -71,6 +71,7 @@ func New(ctx context.Context, deps Deps) *App {
 	}
 	a.state.screen = screenLoading
 	a.state.opacity = 1
+	a.state.compare = true
 
 	a.plat = platform.New(platform.Config{
 		AppName:  deps.AppName,
@@ -162,7 +163,7 @@ func (a *App) layoutBuild(gtx layout.Context, st uiState) {
 			}),
 			layout.Rigid(layout.Spacer{Height: unit.Dp(8)}.Layout),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				navAction = a.buildView.Layout(gtx, a.th, st.build, st.treeData, st.treeErr)
+				navAction = a.buildView.Layout(gtx, a.th, st.build, st.treeData, st.treeErr, st.compare)
 
 				return layout.Dimensions{Size: gtx.Constraints.Max}
 			}),

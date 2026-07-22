@@ -33,6 +33,7 @@ type uiState struct {
 	importErr string
 	locked    bool
 	opacity   float64
+	compare   bool
 	summaries []builds.Summary
 	pobFiles  []pobfiles.Build
 	pobErr    string
