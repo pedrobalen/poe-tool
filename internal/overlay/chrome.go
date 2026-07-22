@@ -1,6 +1,8 @@
 package overlay
 
 import (
+	"image"
+
 	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -124,10 +126,13 @@ func (c *Chrome) readDrag(gtx layout.Context, action *ChromeAction) {
 		if !ok {
 			continue
 		}
+		// Only Press starts and Release stops the drag. Cancel is ignored: moving
+		// the window under the cursor makes Gio cancel its pointer grab mid-drag,
+		// and the platform drag loop already stops itself on mouse-button release.
 		switch pe.Kind {
 		case pointer.Press:
 			action.DragStart = true
-		case pointer.Release, pointer.Cancel:
+		case pointer.Release:
 			action.DragEnd = true
 		}
 	}
@@ -144,7 +149,13 @@ func (c *Chrome) dragHandle(th *theme.Theme, title string, draggable bool) layou
 
 		dims := lbl.Layout(gtx)
 		if draggable {
-			area := clip.Rect{Max: dims.Size}.Push(gtx.Ops)
+			// Cover the whole handle area (the flexed width), not just the text,
+			// so the entire title bar can be grabbed to move the window.
+			width := gtx.Constraints.Min.X
+			if width < dims.Size.X {
+				width = dims.Size.X
+			}
+			area := clip.Rect{Max: image.Pt(width, dims.Size.Y)}.Push(gtx.Ops)
 			event.Op(gtx.Ops, &c.dragTag)
 			area.Pop()
 		}

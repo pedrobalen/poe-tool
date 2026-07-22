@@ -44,7 +44,14 @@ func (c *Controller) dragLoop(hwnd uintptr) {
 		return
 	}
 
+	// The loop follows the cursor until the physical left mouse button is
+	// released. Relying on the button state (rather than a Gio release event)
+	// keeps the drag alive even though moving the window makes Gio cancel its
+	// pointer capture mid-drag.
 	for c.dragging.Load() {
+		if !leftButtonDown() {
+			break
+		}
 		cursor, ok := cursorPos()
 		if !ok {
 			break
@@ -52,6 +59,14 @@ func (c *Controller) dragLoop(hwnd uintptr) {
 		moveWindow(hwnd, cursor.X+offX, cursor.Y+offY)
 		time.Sleep(dragInterval)
 	}
+
+	c.dragging.Store(false)
+}
+
+func leftButtonDown() bool {
+	state, _, _ := procGetAsyncKeyState.Call(uintptr(vkLButton))
+
+	return state&0x8000 != 0
 }
 
 // dragAnchor records the offset between the window's top-left corner and the

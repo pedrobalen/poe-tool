@@ -34,6 +34,7 @@ var (
 	procDestroyMenu         = user32.NewProc("DestroyMenu")
 	procGetCursorPos        = user32.NewProc("GetCursorPos")
 	procGetWindowRect       = user32.NewProc("GetWindowRect")
+	procGetAsyncKeyState    = user32.NewProc("GetAsyncKeyState")
 	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
 	procPostMessage         = user32.NewProc("PostMessageW")
 
@@ -73,6 +74,7 @@ const (
 	modControl  = 0x0002
 	modNoRepeat = 0x4000
 	vkB         = 0x42
+	vkLButton   = 0x01
 
 	wmDestroy   = 0x0002
 	wmClose     = 0x0010
