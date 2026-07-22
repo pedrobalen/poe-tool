@@ -140,10 +140,11 @@ func (v *BuildView) treePanel(
 }
 
 // gemsPanel renders the skills/gems side panel: a fixed-width, scrollable column
-// so its length never resizes the tree. It distinguishes active skill gems from
-// support gems and lists the gem changes versus the previous stage.
+// so its length never resizes the tree. Each socket (link) group is drawn as its
+// own card, so it is unambiguous that a support inside a card applies to the
+// active skill(s) in that same linked group.
 func (v *BuildView) gemsPanel(th *theme.Theme, stage *builds.BuildStage) layout.Widget {
-	rows := buildGemRows(th, stage)
+	groups := activeGroups(stage.SkillGroups)
 	v.gemsList.Axis = layout.Vertical
 
 	return func(gtx layout.Context) layout.Dimensions {
@@ -151,12 +152,14 @@ func (v *BuildView) gemsPanel(th *theme.Theme, stage *builds.BuildStage) layout.
 		gtx.Constraints.Min.X = width
 		gtx.Constraints.Max.X = width
 
-		return widgets.FillBackground(gtx, th.Surface, func(gtx layout.Context) layout.Dimensions {
-			return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return material.List(th.Theme, &v.gemsList).Layout(gtx, len(rows), func(gtx layout.Context, i int) layout.Dimensions {
-					return rows[i](gtx)
-				})
+		if len(groups) == 0 {
+			return widgets.FillBackground(gtx, th.Surface, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, widgets.Body(th, "No skills.", th.Muted))
 			})
+		}
+
+		return material.List(th.Theme, &v.gemsList).Layout(gtx, len(groups), func(gtx layout.Context, i int) layout.Dimensions {
+			return groupCard(th, groups[i])(gtx)
 		})
 	}
 }

@@ -2,8 +2,10 @@ package overlay
 
 import (
 	"image"
+	"image/color"
 
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
@@ -71,38 +73,42 @@ func treeUnavailableText(err error) string {
 	return "Passive tree unavailable: " + err.Error()
 }
 
-// buildGemRows lists the current stage's socket (link) groups and their gems
-// exactly as saved in the build, with active skills before supports. Groups are
-// separated by a divider; the build's main skill is highlighted. Gems carry no
-// progression markers: stage-to-stage comparison lives on the passive tree only.
-func buildGemRows(th *theme.Theme, stage *builds.BuildStage) []layout.Widget {
-	rows := []layout.Widget{}
-	first := true
-
-	for _, group := range stage.SkillGroups {
-		if len(group.Gems) == 0 {
-			continue
-		}
-		if !first {
-			rows = append(rows, dividerRow(th))
-		}
-		first = false
-
-		for _, gem := range orderedGems(group.Gems) {
-			primary := group.IsMain && !gem.IsSupport
-			rows = append(rows, gemRow(th, gem.Name, gem.IsSupport, primary))
+// activeGroups returns the stage's socket groups that actually contain gems.
+func activeGroups(groups []builds.SkillGroup) []builds.SkillGroup {
+	out := make([]builds.SkillGroup, 0, len(groups))
+	for _, g := range groups {
+		if len(g.Gems) > 0 {
+			out = append(out, g)
 		}
 	}
 
-	if len(rows) == 0 {
-		rows = append(rows, gemRow(th, "No skills.", false, false))
-	}
+	return out
+}
 
-	return rows
+// groupCard renders one socket (link) group as a self-contained card: its active
+// skill(s) first, then the support gems. Because every gem in the card belongs
+// to the same linked group, the supports it contains apply to the skill(s) shown
+// in the same card — never to gems in another card.
+func groupCard(th *theme.Theme, group builds.SkillGroup) layout.Widget {
+	return func(gtx layout.Context) layout.Dimensions {
+		return layout.Inset{Top: unit.Dp(4), Bottom: unit.Dp(4)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return cardBackground(gtx, th.Surface, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(unit.Dp(10)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					children := make([]layout.FlexChild, 0, len(group.Gems))
+					for _, gem := range orderedGems(group.Gems) {
+						primary := group.IsMain && !gem.IsSupport
+						children = append(children, layout.Rigid(gemRow(th, gem.Name, gem.IsSupport, primary)))
+					}
+
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+				})
+			})
+		})
+	}
 }
 
 // orderedGems returns a skill group's gems with active skills before supports,
-// preserving author order within each group.
+// preserving author order within each category.
 func orderedGems(gems []builds.Gem) []builds.Gem {
 	ordered := make([]builds.Gem, 0, len(gems))
 	for _, g := range gems {
@@ -147,16 +153,16 @@ func gemRow(th *theme.Theme, name string, isSupport, primary bool) layout.Widget
 	}
 }
 
-// dividerRow draws a thin horizontal separator between socket groups.
-func dividerRow(th *theme.Theme) layout.Widget {
-	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: unit.Dp(7), Bottom: unit.Dp(7)}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			size := image.Pt(gtx.Constraints.Max.X, gtx.Dp(unit.Dp(1)))
-			line := th.Muted
-			line.A = 0x40
-			paint.FillShape(gtx.Ops, line, clip.Rect{Max: size}.Op())
+// cardBackground paints a rounded surface behind w, used to bound a socket group.
+func cardBackground(gtx layout.Context, c color.NRGBA, w layout.Widget) layout.Dimensions {
+	macro := op.Record(gtx.Ops)
+	dims := w(gtx)
+	call := macro.Stop()
 
-			return layout.Dimensions{Size: size}
-		})
-	}
+	rr := clip.RRect{Rect: image.Rectangle{Max: dims.Size}, SE: 6, SW: 6, NW: 6, NE: 6}.Push(gtx.Ops)
+	paint.Fill(gtx.Ops, c)
+	rr.Pop()
+	call.Add(gtx.Ops)
+
+	return dims
 }
