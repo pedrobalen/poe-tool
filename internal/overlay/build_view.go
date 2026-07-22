@@ -7,6 +7,7 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"golang.org/x/exp/shiny/materialdesign/icons"
 
 	"github.com/pedrobalen/poe-build-overlay/internal/builds"
 	pt "github.com/pedrobalen/poe-build-overlay/internal/passive_tree"
@@ -14,6 +15,9 @@ import (
 	"github.com/pedrobalen/poe-build-overlay/internal/ui/tree"
 	"github.com/pedrobalen/poe-build-overlay/internal/ui/widgets"
 )
+
+// iconRecenter is the tree recenter/fit control icon.
+var iconRecenter = mustIcon(icons.ImageCenterFocusStrong)
 
 // NavKind identifies a navigation intent produced by the build view.
 type NavKind int
@@ -39,13 +43,13 @@ type NavAction struct {
 // BuildView renders a build's current stage: stage nav, the passive tree, and a
 // side panel of skills/gems.
 type BuildView struct {
-	prev       widget.Clickable
-	next       widget.Clickable
-	fit        widget.Clickable
-	compareBox widget.Bool
-	gemsList   widget.List
-	tree       tree.Widget
-	lastID     string // detects stage changes to refit the tree
+	prev        widget.Clickable
+	next        widget.Clickable
+	fit         widget.Clickable
+	compareBox  widget.Bool
+	gemsList    widget.List
+	tree        tree.Widget
+	lastBuildID string // detects build changes to refit the tree
 }
 
 // Layout draws the build view for the active stage and returns any navigation
@@ -66,7 +70,7 @@ func (v *BuildView) Layout(
 		return NavAction{}
 	}
 
-	v.refitOnStageChange(stage.ID)
+	v.refitOnBuildChange(b.ID)
 
 	action := v.readActions(gtx, b)
 	v.readCompare(gtx, compare, &action)
@@ -110,10 +114,12 @@ func (v *BuildView) readActions(gtx layout.Context, b *builds.Build) NavAction {
 	}
 }
 
-func (v *BuildView) refitOnStageChange(stageID string) {
-	if stageID != v.lastID {
+// refitOnBuildChange recenters the tree only when the build changes, so moving
+// between stages keeps the user's current zoom and pan.
+func (v *BuildView) refitOnBuildChange(buildID string) {
+	if buildID != v.lastBuildID {
 		v.tree.Fit()
-		v.lastID = stageID
+		v.lastBuildID = buildID
 	}
 }
 
@@ -133,7 +139,9 @@ func (v *BuildView) stageBar(th *theme.Theme, b *builds.Build, stage *builds.Bui
 			}),
 			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 			layout.Rigid(navButton(th, &v.next, "→", b.HasNext())),
-			layout.Rigid(layout.Spacer{Width: unit.Dp(12)}.Layout),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(8)}.Layout),
+			layout.Rigid(smallIconButton(th, &v.fit, iconRecenter, "Recenter tree")),
+			layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				cb := material.CheckBox(th.Theme, &v.compareBox, "Compare")
 				cb.Color = th.Muted
