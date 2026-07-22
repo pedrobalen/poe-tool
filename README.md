@@ -1,102 +1,55 @@
 # PoE Build Progression Overlay
 
-A lightweight Windows desktop overlay, written in Go, that shows a Path of
-Exile build's **progression** on top of the game. It imports builds that were
-already authored in Path of Building (via `pobb.in`, a compatible Pastebin, or a
-raw PoB code) and reuses the stages the author saved — passive-tree steps, skill
-sets, and gem changes — so you can follow a build without opening Path of
-Building.
-
-The overlay stays hidden and is toggled with **Ctrl+B**.
-
-> This project is not affiliated with or endorsed by Grinding Gear Games.
+A small Windows overlay that shows a Path of Exile build's **leveling
+progression** on top of the game. Press **Ctrl+B** to open it, glance at what to
+do next, and press **Ctrl+B** (or **Esc**) to close it.
 
 ## What it does
 
-- Lives in the system tray; the overlay opens/closes with `Ctrl+B` (and closes
-  with `Esc` while the build view is focused).
-- Imports a build from a `pobb.in` link, a compatible Pastebin, or a pasted PoB
-  code — detected automatically.
-- Preserves the author's stage **names and order** (e.g. `Act 1`, `Level 40`,
-  `Endgame`); it never invents progression.
-- Precomputes, at import time, the passive-node and gem differences between each
-  stage and the previous one.
-- Stores the normalized build locally in SQLite, so reopening never touches the
-  network or reparses XML.
-- Renders the passive tree graphically (when structural data for the build's
-  tree version is available), highlighting the nodes added at the current stage.
+You import a build that was made in **Path of Building**, and the overlay shows,
+for each saved step of that build:
 
-Out of scope (by design): price checking, DPS/defensive calculations, the PoB
-mod engine, live character import, and editing builds.
+- the passive tree, highlighting which points to take next (green) compared to
+  the previous step, PoB-style;
+- the skill gems and their support links;
+- the mastery effect chosen for each mastery node (hover to see it).
 
-## Requirements
+It only **reads and displays** what the build's author already set up in Path of
+Building — it doesn't calculate DPS, defenses, or anything else. Think of it as a
+read-only, in-game view of a PoB build's leveling stages.
 
-- Go 1.24+ (developed against 1.26).
-- Windows for the full experience (global hotkey, tray, topmost tool-window
-  styling). The code builds on other platforms, but OS integration is a no-op
-  there.
-- No C toolchain required: SQLite uses the pure-Go `modernc.org/sqlite` driver.
+## How to use
 
-## Build & run
+1. Run the app. It sits in the system tray and starts hidden.
+2. Press **Ctrl+B** to open the overlay.
+3. Import a build, either by:
+   - pasting a `pobb.in` / Pastebin link or a raw PoB code, or
+   - clicking **Import from Path of Building** to pick one of your locally saved
+     PoB builds.
+4. Use the **←/→** arrows to move between the build's steps and follow the
+   highlighted passive points and skills.
+
+Tips: drag the title to move the window, use the lock icon to pin it in place,
+and the slider to adjust opacity so it stays out of your way while you play.
+
+The graphical passive tree needs tree data for the build's version. If it shows
+"unavailable", generate it once with `cmd/treegen` from the official GGG skill
+tree export (see `cmd/treegen`).
+
+## Build and run
 
 ```bash
-# Run from source
 go run ./cmd/poe-build-overlay
-
-# Build a windowed binary (no console window)
+# or a windowed binary (no console window):
 go build -ldflags "-H=windowsgui" -o poe-build-overlay.exe ./cmd/poe-build-overlay
 ```
 
-Application data (SQLite database, log, and optional tree data) lives in
+Windows only. No C toolchain needed. Data lives in
 `%AppData%\poe-build-overlay\`.
 
-## Passive tree data
+## About
 
-The graphical tree needs structural data (node positions and connections) for
-the build's tree version. This data is **not bundled**. To enable the tree,
-drop a JSON file named `<treeVersion>.json` (e.g. `3_25.json`) into
-`%AppData%\poe-build-overlay\tree\`. The expected shape:
-
-```json
-{
-  "nodes": [
-    { "id": 123, "x": 100.0, "y": 200.0, "kind": "notable", "name": "Barbarism", "group": 4, "mastery": false }
-  ],
-  "connections": [
-    { "from": 123, "to": 456 }
-  ]
-}
-```
-
-Imported tree data is cached in SQLite and versioned by tree version. When data
-is missing, the overlay shows a clear message instead of drawing a mismatched
-tree.
-
-## Tests
-
-```bash
-go test ./...        # unit + storage integration tests
-go vet ./...
-gofmt -l .           # should print nothing
-```
-
-The core pipeline (PoB decode → parse → normalize → stage diff) and the SQLite
-repositories are covered by tests. The Gio UI and Win32 integration are
-exercised by building and launching the app, not by automated tests.
-
-## Architecture
-
-See [`docs/architecture.md`](docs/architecture.md) for module boundaries and
-data flow. In short:
-
-```
-importers → pob (decode/parse/normalize) → builds (domain, diff, service)
-                                              │
-                                     storage (SQLite, migrations, repositories)
-                                              │
-app (state + Gio loop) ── overlay (views) ── ui (theme, widgets, tree)
-                       └─ platform/windows (hotkey, tray, window styling)
-```
-
-Heavy work (download, Base64, zlib, XML, normalization, diffing) happens only
-during import. Opening the overlay reads already-processed rows from SQLite.
+This is a simple personal project. It is not affiliated with, endorsed by, or
+connected to Grinding Gear Games or Path of Building in any way, and there is no
+commercial or external interest behind it — it started as something I built for
+myself.
