@@ -26,6 +26,42 @@ type Source interface {
 	Import(version string) (*TreeData, error)
 }
 
+// MultiSource tries each source in order, using the first that has the version.
+// It lets bundled data take precedence over user-supplied files (or vice versa).
+type MultiSource struct {
+	sources []Source
+}
+
+// NewMultiSource chains sources; earlier sources take precedence.
+func NewMultiSource(sources ...Source) *MultiSource {
+	return &MultiSource{sources: sources}
+}
+
+// Available reports whether any chained source has the version.
+func (m *MultiSource) Available(version string) bool {
+	return m.pick(version) != nil
+}
+
+// Import imports the version from the first source that has it.
+func (m *MultiSource) Import(version string) (*TreeData, error) {
+	src := m.pick(version)
+	if src == nil {
+		return nil, fmt.Errorf("%w: %s", ErrTreeUnavailable, version)
+	}
+
+	return src.Import(version)
+}
+
+func (m *MultiSource) pick(version string) Source {
+	for _, s := range m.sources {
+		if s != nil && s.Available(version) {
+			return s
+		}
+	}
+
+	return nil
+}
+
 // Loader resolves structural tree data, preferring the persisted store and
 // falling back to a Source (which it then caches into the store). Both the
 // store and source are optional; a Loader with neither always reports

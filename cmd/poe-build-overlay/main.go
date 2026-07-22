@@ -15,6 +15,7 @@ import (
 	pt "github.com/pedrobalen/poe-build-overlay/internal/passive_tree"
 	"github.com/pedrobalen/poe-build-overlay/internal/storage"
 	"github.com/pedrobalen/poe-build-overlay/internal/storage/repositories"
+	"github.com/pedrobalen/poe-build-overlay/internal/treedata"
 )
 
 func main() {
@@ -71,12 +72,15 @@ func wire(cfg config.Config, db *storage.DB) app.Deps {
 	buildRepo := repositories.NewBuildRepo(db.DB)
 	windowRepo := repositories.NewWindowRepo(db.DB)
 	settingsRepo := repositories.NewSettingsRepo(db.DB)
-	treeRepo := repositories.NewTreeRepo(db.DB)
 
-	// Structural tree data is optional and user-extensible: drop
-	// "<version>.json" files into <dataDir>/tree to enable the graphical tree.
-	treeSource := pt.NewJSONSource(os.DirFS(cfg.DataDir), "tree")
-	treeLoader := pt.NewLoader(treeRepo, treeSource)
+	// Tree data comes from the bundled versions first, then user-supplied files
+	// in <dataDir>/tree ("<version>.json") for any version not shipped. It is
+	// read straight from the embedded assets (fast, in-memory) without a SQLite
+	// cache, so updated bundled data always takes effect on the next launch.
+	bundled := pt.NewJSONSource(treedata.FS, treedata.Dir)
+	userTrees := pt.NewJSONSource(os.DirFS(cfg.DataDir), "tree")
+	treeSource := pt.NewMultiSource(bundled, userTrees)
+	treeLoader := pt.NewLoader(nil, treeSource)
 
 	registry := importers.NewRegistry(nil)
 	service := builds.NewService(registry, buildRepo, nil)
