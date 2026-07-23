@@ -18,9 +18,33 @@ It only **reads and displays** what the build's author already set up in Path of
 Building — it doesn't calculate DPS, defenses, or anything else. Think of it as a
 read-only, in-game view of a PoB build's leveling stages.
 
+## Download
+
+Grab the latest portable executable from the **Releases** page:
+
+**→ [github.com/pedrobalen/poe-tool/releases/latest](https://github.com/pedrobalen/poe-tool/releases/latest)**
+
+Download the `poe-build-overlay.exe` file listed under **Assets**. That single
+file is the whole app — there is nothing to install, it needs no administrator
+rights, and it keeps its data in your user profile
+(`%AppData%\poe-build-overlay\`). To uninstall, just delete the `.exe`.
+
+Windows 10 / 11 only.
+
+### First launch
+
+1. Double-click `poe-build-overlay.exe`.
+2. Because the file isn't code-signed, Windows SmartScreen may show
+   *"Windows protected your PC"*. Click **More info → Run anyway**. (This is
+   expected for a small unsigned tool; the source is in this repository.)
+3. The app starts **hidden** and lives in the system tray (the green node icon
+   near the clock). Nothing opens on screen yet — press **Ctrl+B** to show the
+   overlay. Right-click the tray icon for **Show / Hide** and **Exit**.
+
 ## How to use
 
-1. Run the app. It sits in the system tray and starts hidden.
+1. Start the app (see [First launch](#first-launch)). It sits in the system tray
+   and starts hidden.
 2. Press **Ctrl+B** to open the overlay.
 3. Import a build, either by:
    - pasting a `pobb.in` / Pastebin link or a raw PoB code, or
