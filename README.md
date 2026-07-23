@@ -42,10 +42,38 @@ tree export (see `cmd/treegen`).
 go run ./cmd/poe-build-overlay
 # or a windowed binary (no console window):
 go build -ldflags "-H=windowsgui" -o poe-build-overlay.exe ./cmd/poe-build-overlay
+# or the optimized, smaller release binary:
+go build -trimpath -ldflags "-s -w -H=windowsgui" -o poe-build-overlay.exe ./cmd/poe-build-overlay
 ```
 
 Windows only. No C toolchain needed. Data lives in
-`%AppData%\poe-build-overlay\`.
+`%AppData%\poe-build-overlay\`. The result is a single, self-contained portable
+`.exe` — no installer, no admin rights, nothing to place alongside it. Passive
+tree data for the shipped game versions is embedded in the binary.
+
+### App icon and version info
+
+The taskbar/tray icon and the executable's version metadata come from
+`assets/icons/appicon.ico` and `versioninfo.json`, compiled into
+`cmd/poe-build-overlay/resource_windows.syso`. That `.syso` is committed so a
+plain `go build` already carries the icon. Regenerate it after changing the icon
+or metadata:
+
+```bash
+go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 \
+  -o cmd/poe-build-overlay/resource_windows.syso versioninfo.json
+```
+
+### Releasing
+
+Pushing a version tag builds the portable `.exe` and publishes it on the GitHub
+Releases page (see `.github/workflows/release.yml`), stamping it with the tag's
+version:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## About
 

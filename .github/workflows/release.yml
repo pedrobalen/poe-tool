@@ -1,0 +1,58 @@
+name: Release
+
+# Publishes a portable Windows .exe to the GitHub Releases page whenever a
+# version tag (e.g. v0.1.0) is pushed.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Derive version from tag
+        id: version
+        shell: bash
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          IFS='.' read -r major minor patch <<< "$v"
+          echo "major=${major:-0}" >> "$GITHUB_OUTPUT"
+          echo "minor=${minor:-0}" >> "$GITHUB_OUTPUT"
+          echo "patch=${patch:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Embed icon and version info
+        shell: bash
+        run: |
+          go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.7.0 \
+            -o cmd/poe-build-overlay/resource_windows.syso \
+            -ver-major "${{ steps.version.outputs.major }}" \
+            -ver-minor "${{ steps.version.outputs.minor }}" \
+            -ver-patch "${{ steps.version.outputs.patch }}" \
+            -ver-build 0 \
+            -product-version "${{ steps.version.outputs.version }}" \
+            versioninfo.json
+
+      - name: Build portable executable
+        shell: bash
+        run: |
+          go build -trimpath -ldflags "-s -w -H=windowsgui" \
+            -o poe-build-overlay.exe ./cmd/poe-build-overlay
+
+      - name: Publish to Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: poe-build-overlay.exe
+          fail_on_unmatched_files: true
+          generate_release_notes: true

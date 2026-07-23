@@ -88,6 +88,11 @@ const (
 	idiApplication = 32512
 	idcArrow       = 32512
 
+	// appIconID is the RT_GROUP_ICON resource id embedded by goversioninfo (see
+	// versioninfo.json). It is absent when building without the generated .syso
+	// (e.g. a bare `go run`), so loadIcon falls back to the system icon.
+	appIconID = 1
+
 	menuShowHide = 1
 	menuExit     = 2
 
@@ -170,7 +175,14 @@ func getModuleHandle() uintptr {
 	return h
 }
 
+// loadIcon returns the application icon embedded in the executable (resource
+// appIconID), falling back to the generic system application icon when that
+// resource is absent.
 func loadIcon() uintptr {
+	if h, _, _ := procLoadIcon.Call(getModuleHandle(), uintptr(appIconID)); h != 0 {
+		return h
+	}
+
 	h, _, _ := procLoadIcon.Call(0, uintptr(idiApplication))
 
 	return h
